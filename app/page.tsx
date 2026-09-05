@@ -46,24 +46,23 @@ import {
   type Scenario,
 } from '@/lib/simulation';
 import { explanations, lessons, questions, references } from '@/lib/lessons';
-import { HeartDiagram } from '@/components/heart-diagram';
+import { HeartExplorer } from '@/components/heart-explorer';
+import { SignalLab } from '@/components/signal-lab';
 
-const width = 1080,
-  pad = 25,
-  plot = width - pad * 2;
 export default function Home() {
   const [scenario, setScenario] = useState<Scenario>('normal'),
     [rate, setRate] = useState(72),
     [time, setTime] = useState(65),
     [playing, setPlaying] = useState(false),
     [speed, setSpeed] = useState('0.25'),
-    [guided, setGuided] = useState(true),
+    [guided, setGuided] = useState(false),
     [labels, setLabels] = useState(true),
     [view, setView] = useState('learn'),
     [compare, setCompare] = useState(false),
     [shareMessage, setShareMessage] = useState(''),
     [ready, setReady] = useState(false),
-    [reduced, setReduced] = useState(false);
+    [reduced, setReduced] = useState(false),
+    [resetKey, setResetKey] = useState(0);
   const sim = useMemo(() => createSimulation(scenario, rate), [scenario, rate]);
   const normal = useMemo(() => createSimulation('normal', rate), [rate]);
   const phase = phaseAt(sim, time),
@@ -79,6 +78,7 @@ export default function Home() {
     setRate(s.rate);
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     setReduced(media.matches);
+    setPlaying(!media.matches);
     const onChange = () => {
       setReduced(media.matches);
       if (media.matches) setPlaying(false);
@@ -126,6 +126,35 @@ export default function Home() {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [playing, speed, guided, sim]);
+  useEffect(() => {
+    function keyboard(event: KeyboardEvent) {
+      const target = event.target as HTMLElement;
+      if (
+        target.closest(
+          'button,a,input,select,textarea,[role="slider"],[role="tab"],[role="switch"],[role="radio"]',
+        )
+      )
+        return;
+      if (event.code === 'Space') {
+        event.preventDefault();
+        if (reduced) {
+          setTime((t) => nextAnchor(sim, t));
+          setPlaying(false);
+        } else setPlaying((p) => !p);
+      }
+      if (event.code === 'ArrowRight' || event.code === 'ArrowLeft') {
+        event.preventDefault();
+        setPlaying(false);
+        setTime((t) =>
+          event.code === 'ArrowRight'
+            ? nextAnchor(sim, t)
+            : previousAnchor(sim, t),
+        );
+      }
+    }
+    window.addEventListener('keydown', keyboard);
+    return () => window.removeEventListener('keydown', keyboard);
+  }, [sim, reduced]);
   function seek(t: number) {
     setPlaying(false);
     timeRef.current = t;
@@ -136,10 +165,12 @@ export default function Home() {
     seek(65);
   }
   function reset() {
+    setResetKey((k) => k + 1);
+    setShareMessage('');
     setScenario('normal');
     setRate(72);
     setSpeed('0.25');
-    setGuided(true);
+    setGuided(false);
     setLabels(true);
     setCompare(false);
     seek(65);
@@ -158,23 +189,6 @@ export default function Home() {
     }
   }
 
-  const points = useMemo(
-    () =>
-      Array.from({ length: 1801 }, (_, i) => {
-        const t = (i / 1800) * sim.duration;
-        return `${i === 0 ? 'M' : 'L'}${(pad + (t / sim.duration) * plot).toFixed(2)},${(108 - voltageAt(sim, t) * 68).toFixed(2)}`;
-      }).join(' '),
-    [sim],
-  );
-  const normalPoints = useMemo(
-    () =>
-      Array.from({ length: 1801 }, (_, i) => {
-        const t = (i / 1800) * normal.duration;
-        return `${i === 0 ? 'M' : 'L'}${(pad + (t / normal.duration) * plot).toFixed(2)},${(108 - voltageAt(normal, t) * 68).toFixed(2)}`;
-      }).join(' '),
-    [normal],
-  );
-  const cursor = pad + (time / sim.duration) * plot;
   const activeIndex = [
     'sinus',
     'atrial',
@@ -243,7 +257,15 @@ export default function Home() {
                   <span className="slash">/</span> LESSON{' '}
                   {String(lessons.indexOf(lesson) + 1).padStart(2, '0')}
                 </div>
-                <h1>{lesson.title}</h1>
+                <h1>
+                  {scenario === 'normal' ? (
+                    <>
+                      Follow one <em>heartbeat.</em>
+                    </>
+                  ) : (
+                    lesson.title
+                  )}
+                </h1>
                 <p>{lesson.description}</p>
               </div>
               <button className="button share-button" onClick={share}>
@@ -267,7 +289,19 @@ export default function Home() {
                   }
                 >
                   <span className="lesson-number">0{i + 1}</span>
-                  {l.short}
+                  <span className="lesson-card-copy">
+                    <strong>{l.short}</strong>
+                    <small>
+                      {
+                        [
+                          'Discover the electrical sequence',
+                          'See what a longer PR changes',
+                          'Find the nonconducted impulse',
+                        ][i]
+                      }
+                    </small>
+                  </span>
+                  <MiniTrace scenario={l.id} />
                   {scenario === l.id && <span className="selected-dot" />}
                 </button>
               ))}
@@ -278,7 +312,8 @@ export default function Home() {
             >
               <div className="studio-top">
                 <span>
-                  <span className="live-dot" /> CONDUCTION STUDIO
+                  <span className={`live-dot ${playing ? 'is-playing' : ''}`} />{' '}
+                  {playing ? 'SIGNAL IN MOTION' : 'EXPLORE THE SIGNAL'}
                 </span>
                 <label className="switch-label" htmlFor="labels">
                   Anatomy labels
@@ -289,19 +324,52 @@ export default function Home() {
                   />
                 </label>
               </div>
+              <div className="live-metrics">
+                <div>
+                  <span>SINUS RATE</span>
+                  <strong>
+                    {rate}
+                    <small>bpm</small>
+                  </strong>
+                </div>
+                <div>
+                  <span>PR INTERVAL</span>
+                  <strong>
+                    {beat.conducted ? beat.pr : '—'}
+                    <small>{beat.conducted ? 'ms' : 'blocked'}</small>
+                  </strong>
+                </div>
+                <div>
+                  <span>ATRIAL CYCLE</span>
+                  <strong>
+                    {sim.beats.indexOf(beat) + 1}
+                    <small>/ 4</small>
+                  </strong>
+                </div>
+                <div className="cycle-meter">
+                  <span>CYCLE POSITION</span>
+                  <div>
+                    <i
+                      style={{
+                        width: `${Math.max(0, Math.min(100, ((time % sim.cycle) / sim.cycle) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
               <div className="studio-body">
-                <div className="anatomy">
+                <div className={`anatomy phase-${phase}`}>
                   <div className="anatomy-caption">
                     ANTERIOR VIEW<span>Patient’s right ← → Patient’s left</span>
                   </div>
-                  <HeartDiagram
+                  <HeartExplorer
+                    key={`${scenario}-${resetKey}`}
                     phase={phase}
                     labels={labels}
-                    progress={Math.max(
-                      0,
-                      Math.min(1, (time - beat.start) / Math.max(1, beat.pr)),
-                    )}
-                  />
+                    beat={beat}
+                    time={time}
+                    onSeek={seek}
+                  />{' '}
                   <div className="anatomy-footer">
                     <span>
                       <i />
@@ -310,7 +378,7 @@ export default function Home() {
                     <span>Simplified educational schematic</span>
                   </div>
                 </div>
-                <aside className="explanation">
+                <aside className={`explanation phase-${phase}`}>
                   <div className="explanation-top">
                     <span className="eyebrow">FOLLOW THE SIGNAL</span>
                     <span className="step-counter">
@@ -353,7 +421,7 @@ export default function Home() {
                       </button>
                     ))}
                   </div>
-                  <div className="phase-copy">
+                  <div className="phase-copy" key={phase}>
                     <span className="phase-label">{current.label}</span>
                     <h2>{current.title}</h2>
                     <p>{current.body}</p>
@@ -413,141 +481,13 @@ export default function Home() {
                   T wave
                 </button>
               </div>{' '}
-              <div className="ecg-wrap">
-                <svg
-                  className="ecg"
-                  viewBox={`0 0 ${width} 175`}
-                  role="img"
-                  aria-label={`Four-cycle ${lesson.short} ECG. Current event: ${current.ecg}. Use the timeline slider to inspect.`}
-                >
-                  <defs>
-                    <pattern
-                      id="minor"
-                      width="10"
-                      height="10"
-                      patternUnits="userSpaceOnUse"
-                    >
-                      <path
-                        d="M10 0H0V10"
-                        fill="none"
-                        stroke="#263c43"
-                        strokeWidth=".45"
-                      />
-                    </pattern>
-                    <pattern
-                      id="major"
-                      width="50"
-                      height="50"
-                      patternUnits="userSpaceOnUse"
-                    >
-                      <rect width="50" height="50" fill="url(#minor)" />
-                      <path
-                        d="M50 0H0V50"
-                        fill="none"
-                        stroke="#35505a"
-                        strokeWidth=".6"
-                      />
-                    </pattern>
-                    <linearGradient id="cursorFade">
-                      <stop stopColor="#77dacb" stopOpacity="0" />
-                      <stop offset="1" stopColor="#77dacb" stopOpacity=".12" />
-                    </linearGradient>
-                  </defs>
-                  <rect width={width} height="175" fill="url(#major)" />
-                  {compare && scenario !== 'normal' && (
-                    <path
-                      d={normalPoints}
-                      fill="none"
-                      stroke="#f3ae8f"
-                      strokeWidth="1.6"
-                      strokeDasharray="4 5"
-                      opacity=".65"
-                    />
-                  )}
-                  <path
-                    d={points}
-                    fill="none"
-                    stroke="#74dfca"
-                    strokeWidth="2.3"
-                    strokeLinejoin="round"
-                  />
-                  {sim.beats.map((b, i) => (
-                    <g
-                      key={b.start}
-                      fill="#9db5b9"
-                      fontSize="12"
-                      fontFamily="monospace"
-                    >
-                      <text
-                        x={pad + ((b.start + 45) / sim.duration) * plot}
-                        y="91"
-                        textAnchor="middle"
-                      >
-                        P
-                      </text>
-                      {b.qrs !== null ? (
-                        <>
-                          <text
-                            x={pad + ((b.qrs + 37) / sim.duration) * plot}
-                            y="22"
-                            textAnchor="middle"
-                          >
-                            QRS
-                          </text>
-                          <text
-                            x={pad + ((b.tStart! + 80) / sim.duration) * plot}
-                            y="78"
-                            textAnchor="middle"
-                          >
-                            T
-                          </text>
-                          <text
-                            x={pad + ((b.start + 70) / sim.duration) * plot}
-                            y="152"
-                          >
-                            PR {b.pr} ms
-                          </text>
-                        </>
-                      ) : (
-                        <text
-                          x={pad + ((b.start + 100) / sim.duration) * plot}
-                          y="151"
-                          fill="#f4ac92"
-                        >
-                          Not conducted
-                        </text>
-                      )}
-                      <text
-                        x={pad + ((i * sim.cycle) / sim.duration) * plot}
-                        y="169"
-                        opacity=".7"
-                      >
-                        {((i * sim.cycle) / 1000).toFixed(2)}s
-                      </text>
-                    </g>
-                  ))}
-                  <rect
-                    x={Math.max(0, cursor - 80)}
-                    width={Math.min(cursor, 80)}
-                    height="175"
-                    fill="url(#cursorFade)"
-                  />
-                  <line
-                    x1={cursor}
-                    x2={cursor}
-                    y1="0"
-                    y2="175"
-                    stroke="#e3ede5"
-                    strokeWidth="1"
-                  />
-                  <circle
-                    cx={cursor}
-                    cy={108 - voltageAt(sim, time) * 68}
-                    r="4"
-                    fill="#fff8ed"
-                  />
-                </svg>
-              </div>
+              <SignalLab
+                key={`${scenario}-${rate}-${resetKey}`}
+                sim={sim}
+                time={time}
+                compare={compare && scenario !== 'normal' ? normal : null}
+                onSeek={seek}
+              />
               <div className="timeline">
                 <Slider
                   aria-label="Timeline position in milliseconds"
@@ -689,7 +629,7 @@ export default function Home() {
               </button>
             </section>
             <div className="below-studio">
-              <Quiz />
+              <Quiz key={resetKey} />
               <section className="learning-note">
                 <span className="eyebrow">
                   <BookOpen size={15} /> THE BIG PICTURE
@@ -942,5 +882,19 @@ function Quiz() {
         </button>
       </div>
     </section>
+  );
+}
+
+function MiniTrace({ scenario }: { scenario: Scenario }) {
+  const sim = createSimulation(scenario, 72);
+  const path = Array.from(
+    { length: 150 },
+    (_, i) =>
+      `${i ? 'L' : 'M'}${i},${22 - voltageAt(sim, (i / 149) * sim.duration) * 15}`,
+  ).join(' ');
+  return (
+    <svg className="mini-trace" viewBox="0 0 150 40" aria-hidden="true">
+      <path d={path} fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
   );
 }

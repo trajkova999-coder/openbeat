@@ -5,11 +5,9 @@ import type { Phase } from '@/lib/simulation';
 export function HeartDiagram({
   phase,
   labels,
-  progress,
 }: {
   phase: Phase;
   labels: boolean;
-  progress: number;
 }) {
   const atrial = phase === 'atrial',
     ventricular = phase === 'ventricular',
@@ -32,15 +30,15 @@ export function HeartDiagram({
       </desc>
       <defs>
         <linearGradient id="rightChamber" x1="0" y1="0" x2="1" y2="1">
-          <stop stopColor="#1e4a50" />
-          <stop offset="1" stopColor="#102a34" />
+          <stop stopColor="#407c94" />
+          <stop offset="1" stopColor="#132d48" />
         </linearGradient>
         <linearGradient id="leftChamber" x1="0" y1="0" x2="1" y2="1">
-          <stop stopColor="#543a42" />
-          <stop offset="1" stopColor="#251f2c" />
+          <stop stopColor="#af6269" />
+          <stop offset="1" stopColor="#372b49" />
         </linearGradient>
         <radialGradient id="heartHalo">
-          <stop stopColor="#33786b" stopOpacity=".16" />
+          <stop stopColor="#33786b" stopOpacity=".32" />
           <stop offset="1" stopColor="#33786b" stopOpacity="0" />
         </radialGradient>
         <filter id="signalGlow" x="-100%" y="-100%" width="300%" height="300%">
@@ -48,16 +46,21 @@ export function HeartDiagram({
         </filter>
       </defs>
       <ellipse cx="341" cy="259" rx="240" ry="210" fill="url(#heartHalo)" />
-      <g fill="none" stroke="#274047" strokeWidth="1">
+      <g
+        fill="none"
+        stroke="#41696e"
+        strokeWidth="1"
+        className="anatomy-guides"
+      >
         <ellipse cx="340" cy="260" rx="202" ry="183" strokeDasharray="2 8" />
         <path d="M112 260H155M525 260H568M340 50V82M340 432V457" />
         <circle cx="340" cy="260" r="215" opacity=".25" />
       </g>
-      <g strokeWidth="2">
+      <g strokeWidth="2" className="heart-tissue">
         <path
           d="M260 155L250 85Q248 65 272 63L285 149"
           fill="url(#rightChamber)"
-          stroke="#447179"
+          stroke="#77aab7"
         />
         <path
           d="M350 161L345 101Q340 64 376 61Q415 58 422 92L425 129"
@@ -74,22 +77,22 @@ export function HeartDiagram({
         <path
           d="M331 169C304 128 256 122 225 147C189 176 194 224 214 253L316 261Q350 216 331 169Z"
           fill="url(#rightChamber)"
-          stroke={atrial ? mint : '#487079'}
+          stroke={atrial ? mint : '#73a9b9'}
         />
         <path
           d="M343 173C371 130 412 128 442 153C470 176 473 213 449 246L355 263Q326 215 343 173Z"
           fill="url(#leftChamber)"
-          stroke={atrial ? mint : '#79515c'}
+          stroke={atrial ? mint : '#c58793'}
         />
         <path
           d="M214 253C210 306 254 362 349 416C328 354 326 301 320 263Q269 231 214 253Z"
           fill="url(#rightChamber)"
-          stroke={ventricular ? mint : recovery ? coral : '#487079'}
+          stroke={ventricular ? mint : recovery ? coral : '#73a9b9'}
         />
         <path
           d="M351 263C374 244 423 233 449 246C472 306 451 380 349 416C337 374 329 311 351 263Z"
           fill="url(#leftChamber)"
-          stroke={ventricular ? mint : recovery ? coral : '#79515c'}
+          stroke={ventricular ? mint : recovery ? coral : '#c58793'}
         />
         <path
           d="M326 162Q343 219 335 256Q316 318 349 416"
@@ -162,14 +165,6 @@ export function HeartDiagram({
           r="6"
           fill={phase === 'blocked' ? coral : av ? mint : '#6ab4aa'}
         />
-        {atrial && (
-          <circle
-            cx={243 + 73 * progress}
-            cy={159 + 76 * progress}
-            r="4"
-            fill="#f3fff8"
-          />
-        )}
       </g>
       {labels && (
         <g
