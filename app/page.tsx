@@ -74,6 +74,7 @@ export default function Home() {
   // oxlint-disable-next-line react/react-compiler -- Initialise URL and device preferences after server rendering; browser APIs are unavailable on the server.
   useEffect(() => {
     const s = readSettings(window.location.search);
+    // oxlint-disable-next-line react/react-compiler -- Read URL settings after SSR; this one-time effect synchronises browser state.
     setScenario(s.scenario);
     setRate(s.rate);
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');

@@ -162,7 +162,7 @@ export function HeartDiagram({
           r="6"
           fill={phase === 'blocked' ? coral : av ? mint : '#6ab4aa'}
         />
-        {atrial && phase !== 'sinus' && (
+        {atrial && (
           <circle
             cx={243 + 73 * progress}
             cy={159 + 76 * progress}
