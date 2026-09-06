@@ -48,6 +48,7 @@ import {
 import { explanations, lessons, questions, references } from '@/lib/lessons';
 import { HeartExplorer } from '@/components/heart-explorer';
 import { SignalLab } from '@/components/signal-lab';
+import { CaseAtlas } from '@/components/case-atlas';
 
 export default function Home() {
   const [scenario, setScenario] = useState<Scenario>('normal'),
@@ -57,7 +58,7 @@ export default function Home() {
     [speed, setSpeed] = useState('0.25'),
     [guided, setGuided] = useState(false),
     [labels, setLabels] = useState(true),
-    [view, setView] = useState('learn'),
+    [view, setView] = useState('atlas'),
     [compare, setCompare] = useState(false),
     [shareMessage, setShareMessage] = useState(''),
     [ready, setReady] = useState(false),
@@ -78,7 +79,9 @@ export default function Home() {
     setRate(s.rate);
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     setReduced(media.matches);
-    setPlaying(!media.matches);
+    const opensLab = new URLSearchParams(window.location.search).has('lesson');
+    setView(opensLab ? 'learn' : 'atlas');
+    setPlaying(opensLab && !media.matches);
     const onChange = () => {
       setReduced(media.matches);
       if (media.matches) setPlaying(false);
@@ -128,6 +131,7 @@ export default function Home() {
   }, [playing, speed, guided, sim]);
   useEffect(() => {
     function keyboard(event: KeyboardEvent) {
+      if (view !== 'learn') return;
       const target = event.target as HTMLElement;
       if (
         target.closest(
@@ -154,7 +158,7 @@ export default function Home() {
     }
     window.addEventListener('keydown', keyboard);
     return () => window.removeEventListener('keydown', keyboard);
-  }, [sim, reduced]);
+  }, [sim, reduced, view]);
   function seek(t: number) {
     setPlaying(false);
     timeRef.current = t;
@@ -198,8 +202,11 @@ export default function Home() {
   ].indexOf(phase);
   return (
     <div className="app-shell">
-      <a href="#lesson" className="skip-link">
-        Skip to lesson
+      <a
+        href={view === 'atlas' ? '#atlas-top' : '#lesson'}
+        className="skip-link"
+      >
+        Skip to content
       </a>
       <header className="site-header">
         <Link className="brand" href="/" aria-label="OpenBeat home">
@@ -226,14 +233,22 @@ export default function Home() {
         onValueChange={(v) => {
           setView(String(v));
           setPlaying(false);
+          const url = new URL(window.location.href);
+          url.search = '';
+          if (v === 'learn') url.searchParams.set('lesson', scenario);
+          window.history.replaceState({}, '', url);
         }}
         className="page-tabs"
       >
         <div className="top-nav">
           <TabsList variant="line" className="nav-list">
+            <TabsTrigger value="atlas">
+              <BookOpen />
+              Case atlas
+            </TabsTrigger>
             <TabsTrigger value="learn">
               <Activity />
-              Explore
+              Heart lab
             </TabsTrigger>
             <TabsTrigger value="about">
               <BookOpen />
@@ -248,6 +263,20 @@ export default function Home() {
             <span /> OPEN SOURCE · OPEN KNOWLEDGE
           </span>
         </div>
+        <TabsContent value="atlas">
+          <CaseAtlas
+            onLab={(id) => {
+              changeLesson(id);
+              setRate(72);
+              setView('learn');
+              const url = new URL(window.location.href);
+              url.search = '';
+              url.searchParams.set('lesson', id);
+              window.history.replaceState({}, '', url);
+              window.scrollTo({ top: 0, behavior: 'instant' });
+            }}
+          />
+        </TabsContent>
         <TabsContent value="learn">
           <main id="lesson">
             <div className="intro">

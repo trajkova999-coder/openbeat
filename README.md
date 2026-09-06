@@ -24,6 +24,8 @@ npm run build
 
 ## Included
 
+- Eight-case atlas: sinus rhythm, bradycardia, tachycardia, first-degree AV block, Wenckebach, Mobitz II, atrial fibrillation and PVCs.
+- Searchable chapters, annotated ECG plates, challenge mode, related cases and side-by-side comparison. See [atlas authoring](docs/ATLAS_AUTHORING.md).
 - Normal conduction, prolonged AV conduction and an illustrative 4:3 Wenckebach cycle.
 - Synchronous ECG, travelling signal markers and event explanations.
 - Five clickable anatomy hotspots, heart zoom and pathway isolation.
